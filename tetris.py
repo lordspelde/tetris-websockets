@@ -16,6 +16,16 @@ WINDOW_WIDTH, WINDOW_HEIGHT = 500, 601
 GRID_WIDTH, GRID_HEIGHT = 300, 600
 TILE_SIZE = 30
 
+DEFAULT_COLORS = (
+    (200, 200, 200),
+    (215, 133, 133),
+    (30, 145, 255),
+    (0, 170, 0),
+    (180, 0, 140),
+    (200, 200, 0)
+)
+
+ENEMY_BLOCK_COLOR = (75, 75, 75) # rows sent over by other players
 
 def remove_empty_columns(arr, _x_offset=0, _keep_counting=True):
     """
@@ -61,19 +71,12 @@ class Block(pygame.sprite.Sprite):
                 return True
         return False
     
-    def __init__(self):
+    def __init__(self, passed_struct=None):
         super().__init__()
         # Get a random color.
-        self.color = random.choice((
-            (200, 200, 200),
-            (215, 133, 133),
-            (30, 145, 255),
-            (0, 170, 0),
-            (180, 0, 140),
-            (200, 200, 0)
-        ))
+        self.color = random.choice(DEFAULT_COLORS)
         self.current = True
-        self.struct = np.array(self.struct)
+        self.struct = np.array(passed_struct or self.struct)
         # Initial random rotation and flip.
         if random.randint(0, 1):
             self.struct = np.rot90(self.struct)
@@ -225,6 +228,10 @@ class ZBlock(Block):
         (1, 0),
     )
 
+class InsertedRow(Block):
+    struct = (
+        (1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+    )
 
 class BlocksGroup(pygame.sprite.OrderedUpdates):
     
@@ -313,15 +320,74 @@ class BlocksGroup(pygame.sprite.OrderedUpdates):
     
     def update_grid(self):
         self._reset_grid()
+
+        height, width = len(self.grid), len(self.grid[0])
+
         for block in self:
             for y_offset, row in enumerate(block.struct):
                 for x_offset, digit in enumerate(row):
                     # Prevent replacing previous blocks.
                     if digit == 0:
                         continue
-                    rowid = block.y + y_offset
-                    colid = block.x + x_offset
-                    self.grid[rowid][colid] = (block, y_offset)
+
+                    rowId = block.y + y_offset
+                    colId = block.x + x_offset
+
+                    if 0 <= rowId < height and 0 <= colId < width:
+                        self.grid[rowId][colId] = (block, y_offset)
+    
+    def insert_row(self, split=None):
+        """
+        Move all blocks upwards and insert a new row at the bottom
+        """
+        height, width = len(self.grid), len(self.grid[0])
+
+        # remove current block so it doesn't get stuck
+        current = self.current_block
+        self.remove(current)
+
+        for block in self:
+            # if block.current:
+            #     continue
+
+            # check if blocks would be pushed into the ceiling
+            if block.y <= 0:
+                raise TopReached
+
+            block.y -= 1
+        
+        # fill in new row
+        if split is None:
+            # originally was going to fill the full row, but that would just instantly clear it lol
+            split = random.randint(0, width - 1)
+        
+        # left side (0-split)
+        if split > 0:
+            left_block = InsertedRow()
+            left_block.struct = np.array([[1] * split]) 
+            left_block.x = 0
+            left_block.y = height - 1
+            left_block.current = False
+            left_block.redraw()
+            self.add(left_block)
+
+        # right side (split-width)
+        right_start_x = split + 1
+        right_width = width - right_start_x
+
+        if right_width > 0:
+            right_block = InsertedRow()
+            right_block.struct = np.array([[1] * right_width])
+            right_block.x = right_start_x
+            right_block.y = height - 1
+            right_block.current = False
+            right_block.redraw()
+            self.add(right_block)
+
+        # re-add active block so it doesn't get stuck
+        self.add(current)
+        
+        self.update_grid()
     
     @property
     def current_block(self):
@@ -442,6 +508,9 @@ def main():
                         blocks.stop_moving_current_block()
                     elif event.key == pygame.K_UP:
                         blocks.rotate_current_block()
+                    elif event.key == pygame.K_g:
+                        blocks.insert_row()
+                
                 if event.key == pygame.K_p:
                     paused = not paused
             
