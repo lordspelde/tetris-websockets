@@ -368,6 +368,7 @@ class BlocksGroup(pygame.sprite.OrderedUpdates):
             left_block.x = 0
             left_block.y = height - 1
             left_block.current = False
+            left_block.color = ENEMY_BLOCK_COLOR
             left_block.redraw()
             self.add(left_block)
 
@@ -381,6 +382,7 @@ class BlocksGroup(pygame.sprite.OrderedUpdates):
             right_block.x = right_start_x
             right_block.y = height - 1
             right_block.current = False
+            right_block.color = ENEMY_BLOCK_COLOR
             right_block.redraw()
             self.add(right_block)
 
