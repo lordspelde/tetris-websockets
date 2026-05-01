@@ -15,7 +15,7 @@ run, blocks = tetris.load()
 
 def on_line_completion():
     print('Line completed!')
-    s.sendall(b'InsertLine')
+    s.sendall('InsertLine'.encode())
 
 def recv():
     while running:
