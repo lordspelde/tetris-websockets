@@ -1,7 +1,7 @@
-import socket
-import threading
 import asyncio
 import websockets
+
+PORT = 8080
 
 players = set()
 
@@ -11,18 +11,16 @@ async def handler(websocket):
     print(f'New connection from {addr}')
 
     try:
-        while True:
-            data = await websocket.recv()
-            if not data:
-                break
+        async for message in websocket:
+            print(f"Received: {message} from {addr}")
 
-            data = data.decode()
-            print(f"Received: {data}")
-
-            if data == 'InsertLine':
+            if message == 'InsertLine':
                 for player in players:
                     if player != websocket:
                         await player.send('InsertLine')
+
+    except websockets.exceptions.ConnectionClosed:
+        pass
 
     finally:
         print(f'Disconnecting {addr}')
@@ -33,4 +31,4 @@ async def main(address, port):
         await asyncio.Future()
 
 if __name__ == '__main__':
-    asyncio.run(main('0.0.0.0', 8080))
+    asyncio.run(main('0.0.0.0', PORT))

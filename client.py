@@ -1,35 +1,43 @@
-import socket
 import tetris
 import threading
 import websockets
 import asyncio
 
-ADDR = '100.98.54.78'
+ADDR = 'localhost'
 PORT = 8080
 
-running = True
 run, blocks = tetris.load()
 
+current_websocket = None
+
+thread_loop = asyncio.new_event_loop()
+asyncio.set_event_loop(thread_loop)
+
 async def main():
+    global current_websocket
     url = f'ws://{ADDR}:{PORT}'
 
     async with websockets.connect(url) as websocket:
         print(f'Connected to {url}')
 
-        def on_line_completion():
-            print('Line completed!')
-            websocket.send('InsertLine')
+        current_websocket = websocket
 
-        blocks.line_completion_callback = on_line_completion
-
-        while True:
-            data = await websocket.recv()
-            print(f'Received: {data}')
-
-            if data == 'InsertLine':
+        async for message in websocket:
+            print(f'Received: {message}')
+            if message == 'InsertLine':
                 blocks.insert_row()
 
-asyncio.run(main())
+def on_line_completion():
+    print('Line completed!')
+    asyncio.run_coroutine_threadsafe(current_websocket.send('InsertLine'), thread_loop)
+
+blocks.line_completion_callback = on_line_completion
+
+def start():
+    asyncio.set_event_loop(thread_loop)
+    thread_loop.run_until_complete(main())
+
+t = threading.Thread(target=start)
+t.start()
 
 run()
-running = False
