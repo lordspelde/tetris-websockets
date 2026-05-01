@@ -11,10 +11,12 @@ async def handler(websocket):
     print(f'New connection from {addr}')
 
     try:
+        # create connection
         async for message in websocket:
             print(f"Received: {message} from {addr}")
 
             if message == 'InsertLine':
+                # relay to other players
                 for player in players:
                     if player != websocket:
                         await player.send('InsertLine')
@@ -23,6 +25,7 @@ async def handler(websocket):
         pass
 
     finally:
+        # cleanup
         print(f'Disconnecting {addr}')
         players.remove(websocket)
 
