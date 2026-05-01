@@ -27,7 +27,11 @@ async def main():
             if message == 'InsertLine':
                 blocks.insert_row()
 
-def on_line_completion():
+def on_line_completion(enemy_line_cleared):
+    if enemy_line_cleared:
+        print('Enemy line cleared')
+        return
+    
     print('Line completed!')
     asyncio.run_coroutine_threadsafe(current_websocket.send('InsertLine'), thread_loop)
 
