@@ -2,7 +2,7 @@ import socket
 import tetris
 import threading
 
-ADDR = 'localhost'
+ADDR = '100.98.54.78'
 PORT = 8080
 
 s = socket.socket()
@@ -36,8 +36,12 @@ def recv():
 
 blocks.line_completion_callback = on_line_completion
 
+t = threading.Thread(target=recv)
+t.start()
+
 run()
 
 running = False
 
 s.close()
+t.join()
