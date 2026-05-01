@@ -560,10 +560,6 @@ def load():
     return run, blocks
 
 
-def main():
-    run = load()
-    run()
-
-
 if __name__ == "__main__":
-    main()
+    run, blocks = load()
+    run()
