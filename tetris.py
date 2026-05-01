@@ -246,6 +246,7 @@ class BlocksGroup(pygame.sprite.OrderedUpdates):
         self._ignore_next_stop = False
         self.score = 0
         self.next_block = None
+        self.line_completion_callback = None
         # Not really moving, just to initialize the attribute.
         self.stop_moving_current_block()
         # The first block.
@@ -304,6 +305,10 @@ class BlocksGroup(pygame.sprite.OrderedUpdates):
                 # to check if there're other completed lines in the
                 # new grid.
                 self._check_line_completion()
+
+                if self.line_completion_callback is not None:
+                    self.line_completion_callback()
+
                 break
     
     def _reset_grid(self):
@@ -462,13 +467,10 @@ def draw_centered_surface(screen, surface, y):
     screen.blit(surface, (400 - surface.get_width()//2, y))
 
 
-def main():
+def load():
     pygame.init()
     pygame.display.set_caption("Tetris with PyGame")
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    run = True
-    paused = False
-    game_over = False
     # Create background.
     background = pygame.Surface(screen.get_size())
     bgcolor = (0, 0, 0)
@@ -488,7 +490,7 @@ def main():
     score_msg_text = font.render(
         "Score:", True, (255, 255, 255), bgcolor)
     game_over_text = font.render(
-        "¡Game over!", True, (255, 220, 0), bgcolor)
+        "Game over!", True, (255, 220, 0), bgcolor)
     
     # Event constants.
     MOVEMENT_KEYS = pygame.K_LEFT, pygame.K_RIGHT, pygame.K_DOWN
@@ -498,57 +500,69 @@ def main():
     pygame.time.set_timer(EVENT_MOVE_CURRENT_BLOCK, 100)
     
     blocks = BlocksGroup()
-    
-    while run:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                run = False
-                break
-            elif event.type == pygame.KEYUP:
-                if not paused and not game_over:
-                    if event.key in MOVEMENT_KEYS:
-                        blocks.stop_moving_current_block()
-                    elif event.key == pygame.K_UP:
-                        blocks.rotate_current_block()
-                    elif event.key == pygame.K_g:
-                        blocks.insert_row()
+
+    def run():
+        running = True
+        paused = False
+        game_over = False
+
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                    break
+                elif event.type == pygame.KEYUP:
+                    if not paused and not game_over:
+                        if event.key in MOVEMENT_KEYS:
+                            blocks.stop_moving_current_block()
+                        elif event.key == pygame.K_UP:
+                            blocks.rotate_current_block()
+                        elif event.key == pygame.K_g:
+                            blocks.insert_row()
+                    
+                    if event.key == pygame.K_p:
+                        paused = not paused
                 
-                if event.key == pygame.K_p:
-                    paused = not paused
+                # Stop moving blocks if the game is over or paused.
+                if game_over or paused:
+                    continue
+                
+                if event.type == pygame.KEYDOWN:
+                    if event.key in MOVEMENT_KEYS:
+                        blocks.start_moving_current_block(event.key)
+                
+                try:
+                    if event.type == EVENT_UPDATE_CURRENT_BLOCK:
+                        blocks.update_current_block()
+                    elif event.type == EVENT_MOVE_CURRENT_BLOCK:
+                        blocks.move_current_block()
+                except TopReached:
+                    game_over = True
             
-            # Stop moving blocks if the game is over or paused.
-            if game_over or paused:
-                continue
-            
-            if event.type == pygame.KEYDOWN:
-                if event.key in MOVEMENT_KEYS:
-                    blocks.start_moving_current_block(event.key)
-            
-            try:
-                if event.type == EVENT_UPDATE_CURRENT_BLOCK:
-                    blocks.update_current_block()
-                elif event.type == EVENT_MOVE_CURRENT_BLOCK:
-                    blocks.move_current_block()
-            except TopReached:
-                game_over = True
+            # Draw background and grid.
+            screen.blit(background, (0, 0))
+            # Blocks.
+            blocks.draw(screen)
+            # Sidebar with misc. information.
+            draw_centered_surface(screen, next_block_text, 50)
+            draw_centered_surface(screen, blocks.next_block.image, 100)
+            draw_centered_surface(screen, score_msg_text, 240)
+            score_text = font.render(
+                str(blocks.score), True, (255, 255, 255), bgcolor)
+            draw_centered_surface(screen, score_text, 270)
+            if game_over:
+                draw_centered_surface(screen, game_over_text, 360)
+            # Update.
+            pygame.display.flip()
         
-        # Draw background and grid.
-        screen.blit(background, (0, 0))
-        # Blocks.
-        blocks.draw(screen)
-        # Sidebar with misc. information.
-        draw_centered_surface(screen, next_block_text, 50)
-        draw_centered_surface(screen, blocks.next_block.image, 100)
-        draw_centered_surface(screen, score_msg_text, 240)
-        score_text = font.render(
-            str(blocks.score), True, (255, 255, 255), bgcolor)
-        draw_centered_surface(screen, score_text, 270)
-        if game_over:
-            draw_centered_surface(screen, game_over_text, 360)
-        # Update.
-        pygame.display.flip()
-    
-    pygame.quit()
+        pygame.quit()
+
+    return run, blocks
+
+
+def main():
+    run = load()
+    run()
 
 
 if __name__ == "__main__":
