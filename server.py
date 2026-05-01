@@ -3,21 +3,16 @@ import threading
 import asyncio
 import websockets
 
-PORT = 8080
+players = set()
 
-players = {}
+async def handler(websocket):
+    players.add(websocket)
+    addr = websocket.remote_address
+    print(f'New connection from {addr}')
 
-s = socket.socket()
-s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-s.bind(('0.0.0.0', PORT))
-s.listen()
-
-print(f'Web server listening on {PORT}')
-
-def handle_client(connection, address):
     try:
         while True:
-            data = connection.recv(1024)
+            data = await websocket.recv()
             if not data:
                 break
 
@@ -25,35 +20,17 @@ def handle_client(connection, address):
             print(f"Received: {data}")
 
             if data == 'InsertLine':
-                for addr, player in players.items():
-                    if addr != address:
-                        player['connection'].sendall('InsertLine'.encode())
+                for player in players:
+                    if player != websocket:
+                        await player.send('InsertLine')
 
     finally:
-        print(f'Disconnecting {address}')
-        connection.close()
-        del players[address]
+        print(f'Disconnecting {addr}')
+        players.remove(websocket)
 
+async def main(address, port):
+    async with websockets.serve(handler, address, port):
+        await asyncio.Future()
 
-while True:
-    try:
-        connection, address = s.accept()
-        print(f'New connection from {address}')
-
-        t = threading.Thread(target=handle_client, args=(connection, address))
-        t.start()
-
-        players[address] = {
-            'connection': connection,
-            'thread': t,
-        }
-
-    except KeyboardInterrupt:
-        print('Stopping')
-        break
-
-s.close()
-
-for addr, player in players.items():
-    player['connection'].close()
-    player['thread'].join()
+if __name__ == '__main__':
+    asyncio.run(main('0.0.0.0', 8080))
