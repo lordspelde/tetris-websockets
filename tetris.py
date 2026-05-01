@@ -306,7 +306,8 @@ class BlocksGroup(pygame.sprite.OrderedUpdates):
                 # new grid.
                 self._check_line_completion()
 
-                if self.line_completion_callback is not None:
+                clearing_enemy_line = any(isinstance(block, InsertedRow) for block in affected_blocks)
+                if clearing_enemy_line and self.line_completion_callback is not None:
                     self.line_completion_callback()
 
                 break
